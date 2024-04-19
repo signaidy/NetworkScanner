@@ -31,24 +31,25 @@ namespace NetworkScanner
             Console.WriteLine($"Subnet mask: {subnetMask}");
 
             // Define the range of IP addresses to scan based on the subnet mask
-            string baseIpAddress = GetBaseIpAddress(routerIpAddress, subnetMask);
-            if (baseIpAddress == null)
+            List<string> ipAddresses = GetIpAddresses(routerIpAddress, subnetMask);
+            if (ipAddresses == null || ipAddresses.Count == 0)
             {
-                Console.WriteLine("Unable to parse router IP address or subnet mask. Exiting...");
+                Console.WriteLine("No IP addresses to scan. Exiting...");
                 return;
             }
 
-            Console.WriteLine($"Scanning network for active hosts (based on {baseIpAddress} subnet)...");
+            Console.WriteLine($"Scanning network for active hosts...");
 
             // Perform ICMP ping sweep on the network
-            int startRange = GetStartRange(subnetMask);;
-            int endRange = GetEndRange(subnetMask);
-
             List<Task> tasks = new List<Task>();
 
-            for (int i = startRange; i <= endRange; i++)
+            foreach (string ipAddress in ipAddresses)
             {
-                string ipAddress = $"{string.Join(".", baseIpAddress.Split('.').Take(3))}.{i}";
+                // Skip IP addresses outside the current subnet
+                if (!IsIpInSameSubnet(routerIpAddress, ipAddress, subnetMask))
+                {
+                    continue;
+                }
 
                 if (IsHostActive(ipAddress))
                 {
@@ -72,6 +73,37 @@ namespace NetworkScanner
             Console.ReadKey();
         }
 
+        static bool IsIpInSameSubnet(string routerIpAddress, string ipAddress, string subnetMask)
+        {
+            try
+            {
+                IPAddress routerIp = IPAddress.Parse(routerIpAddress);
+                IPAddress ip = IPAddress.Parse(ipAddress);
+                IPAddress mask = IPAddress.Parse(subnetMask);
+
+                byte[] routerBytes = routerIp.GetAddressBytes();
+                byte[] ipBytes = ip.GetAddressBytes();
+                byte[] maskBytes = mask.GetAddressBytes();
+
+                // Calculate network addresses for both IP addresses
+                byte[] networkBytesRouter = new byte[4];
+                byte[] networkBytesIP = new byte[4];
+                for (int i = 0; i < 4; i++)
+                {
+                    networkBytesRouter[i] = (byte)(routerBytes[i] & maskBytes[i]);
+                    networkBytesIP[i] = (byte)(ipBytes[i] & maskBytes[i]);
+                }
+
+                // Compare network addresses
+                return networkBytesRouter.SequenceEqual(networkBytesIP);
+            }
+            catch
+            {
+                return false; // Error occurred, consider IP in different subnet
+            }
+        }
+
+
         static bool IsHostActive(string ipAddress)
         {
             try
@@ -83,6 +115,7 @@ namespace NetworkScanner
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error pinging host {ipAddress}: {ex.Message}");
                 return false;
             }
         }
@@ -156,23 +189,39 @@ namespace NetworkScanner
             }
         }
 
-        static string GetBaseIpAddress(string routerIpAddress, string subnetMask)
+        static List<string> GetIpAddresses(string routerIpAddress, string subnetMask)
         {
             try
             {
                 IPAddress routerIp = IPAddress.Parse(routerIpAddress);
                 IPAddress mask = IPAddress.Parse(subnetMask);
 
-                byte[] routerBytes = routerIp.GetAddressBytes();
                 byte[] maskBytes = mask.GetAddressBytes();
 
-                byte[] baseBytes = new byte[4];
-                for (int i = 0; i < 4; i++)
+                // Count the number of bits set to 1 in the subnet mask
+                int bitCount = 0;
+                foreach (byte b in maskBytes)
                 {
-                    baseBytes[i] = (byte)(routerBytes[i] & maskBytes[i]);
+                    bitCount += Convert.ToString(b, 2).Count(c => c == '1');
                 }
 
-                return new IPAddress(baseBytes).ToString();
+                // Calculate the number of possible IP addresses in the subnet
+                int addressCount = (int)Math.Pow(2, 32 - bitCount);
+
+                List<string> ipAddresses = new List<string>();
+
+                // Construct IP addresses by iterating over the last octet only
+                for (int i = 1; i < addressCount; i++)
+                {
+                    byte[] ipBytes = routerIp.GetAddressBytes();
+
+                    // Convert the integer to bytes and place it in the last octet
+                    ipBytes[3] = (byte)(ipBytes[3] + i);
+
+                    ipAddresses.Add(new IPAddress(ipBytes).ToString());
+                }
+
+                return ipAddresses;
             }
             catch (Exception ex)
             {
@@ -181,28 +230,7 @@ namespace NetworkScanner
             }
         }
 
-        static int GetStartRange(string subnetMask)
-        {
-            try
-            {
-                IPAddress mask = IPAddress.Parse(subnetMask);
-                byte[] maskBytes = mask.GetAddressBytes();
 
-                // Calculate the network address
-                byte[] networkAddressBytes = new byte[4];
-                for (int i = 0; i < 4; i++)
-                {
-                    networkAddressBytes[i] = (byte)(maskBytes[i] & maskBytes[i]);
-                }
-
-                return BitConverter.ToInt32(networkAddressBytes.Reverse().ToArray(), 0) + 1;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error parsing subnet mask: {ex.Message}");
-                return 1;
-            }
-        }
 
         static int GetEndRange(string subnetMask)
         {
@@ -222,7 +250,7 @@ namespace NetworkScanner
             catch (Exception ex)
             {
                 Console.WriteLine($"Error parsing subnet mask: {ex.Message}");
-                return 255;
+                return 0;
             }
         }
     }

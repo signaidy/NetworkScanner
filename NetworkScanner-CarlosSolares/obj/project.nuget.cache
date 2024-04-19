@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "7yyMfkiFq+ikT9wkg5jBljBT6KmqHre0pt3BJi+XoFssE3/O2jhtVQyAwHfdpdla2t7i49d/dqi7M4kyCpHGFQ==",
+  "dgSpecHash": "V2wH2Oh+Q2olfCZs+aj5ib56jvx7J+/LKn9IVl7o9az4ibeMHnWdW5ySSqYnp5N0VV63Aei5PF7GyysP8Gz/dA==",
   "success": true,
-  "projectFilePath": "C:\\Users\\KQ-DESK\\Documents\\TestDocker\\src\\Proyecto Riesgos\\NetworkScanner-CarlosSolares\\NetworkScanner-CarlosSolares.csproj",
+  "projectFilePath": "C:\\Users\\cesol\\OneDrive\\Documents\\src\\NetworkScanner\\NetworkScanner\\NetworkScanner-CarlosSolares\\NetworkScanner-CarlosSolares.csproj",
   "expectedPackageFiles": [],
   "logs": []
 }
