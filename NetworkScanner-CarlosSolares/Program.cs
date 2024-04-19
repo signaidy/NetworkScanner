@@ -203,7 +203,7 @@ namespace NetworkScanner
 
                 int hostBits = 32 - CountSetBits(maskUint); // Calculate the number of bits for the host portion
 
-                int hostCount = 1 << hostBits; // Use the correct type for the left shift operation
+                int hostCount = 1 << hostBits;
 
                 List<string> ipAddresses = new List<string>();
 

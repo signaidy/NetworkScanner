@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("NetworkScanner-CarlosSolares")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2ef29b1436879b56634fe8381ee8f4af093c4922")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+12479f6d5d91393f9c861f862ee91aba80ef94b7")]
 [assembly: System.Reflection.AssemblyProductAttribute("NetworkScanner-CarlosSolares")]
 [assembly: System.Reflection.AssemblyTitleAttribute("NetworkScanner-CarlosSolares")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
