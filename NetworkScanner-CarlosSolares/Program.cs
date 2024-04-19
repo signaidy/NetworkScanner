@@ -196,28 +196,21 @@ namespace NetworkScanner
                 IPAddress routerIp = IPAddress.Parse(routerIpAddress);
                 IPAddress mask = IPAddress.Parse(subnetMask);
 
-                byte[] maskBytes = mask.GetAddressBytes();
+                uint routerIpUint = BitConverter.ToUInt32(routerIp.GetAddressBytes().Reverse().ToArray(), 0);
+                uint maskUint = BitConverter.ToUInt32(mask.GetAddressBytes().Reverse().ToArray(), 0);
 
-                // Count the number of bits set to 1 in the subnet mask
-                int bitCount = 0;
-                foreach (byte b in maskBytes)
-                {
-                    bitCount += Convert.ToString(b, 2).Count(c => c == '1');
-                }
+                uint subnetAddress = routerIpUint & maskUint;
 
-                // Calculate the number of possible IP addresses in the subnet
-                int addressCount = (int)Math.Pow(2, 32 - bitCount);
+                int hostBits = 32 - CountSetBits(maskUint); // Calculate the number of bits for the host portion
+
+                int hostCount = 1 << hostBits; // Use the correct type for the left shift operation
 
                 List<string> ipAddresses = new List<string>();
 
-                // Construct IP addresses by iterating over the last octet only
-                for (int i = 1; i < addressCount; i++)
+                for (uint i = 1; i < hostCount - 1; i++)
                 {
-                    byte[] ipBytes = routerIp.GetAddressBytes();
-
-                    // Convert the integer to bytes and place it in the last octet
-                    ipBytes[3] = (byte)(ipBytes[3] + i);
-
+                    uint ipUint = subnetAddress + i;
+                    byte[] ipBytes = BitConverter.GetBytes(ipUint).Reverse().ToArray();
                     ipAddresses.Add(new IPAddress(ipBytes).ToString());
                 }
 
@@ -230,28 +223,15 @@ namespace NetworkScanner
             }
         }
 
-
-
-        static int GetEndRange(string subnetMask)
+        static int CountSetBits(uint n)
         {
-            try
+            int count = 0;
+            while (n > 0)
             {
-                IPAddress mask = IPAddress.Parse(subnetMask);
-                byte[] maskBytes = mask.GetAddressBytes();
-
-                int endRange = 0;
-                for (int i = 0; i < 4; i++)
-                {
-                    endRange += 255 - maskBytes[i];
-                }
-
-                return endRange;
+                count += (int)(n & 1);
+                n >>= 1;
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error parsing subnet mask: {ex.Message}");
-                return 0;
-            }
+            return count;
         }
     }
 }

@@ -27,3 +27,4 @@ C:\Users\cesol\OneDrive\Documents\src\NetworkScanner\NetworkScanner\NetworkScann
 C:\Users\cesol\OneDrive\Documents\src\NetworkScanner\NetworkScanner\NetworkScanner-CarlosSolares\obj\Debug\net8.0\NetworkScanner-CarlosSolares.pdb
 C:\Users\cesol\OneDrive\Documents\src\NetworkScanner\NetworkScanner\NetworkScanner-CarlosSolares\obj\Debug\net8.0\NetworkScanner-CarlosSolares.genruntimeconfig.cache
 C:\Users\cesol\OneDrive\Documents\src\NetworkScanner\NetworkScanner\NetworkScanner-CarlosSolares\obj\Debug\net8.0\ref\NetworkScanner-CarlosSolares.dll
+C:\Users\KQ-DESK\Documents\TestDocker\src\Proyecto Riesgos\NetworkScanner-CarlosSolares\obj\Debug\net8.0\NetworkScanner-CarlosSolares.sourcelink.json

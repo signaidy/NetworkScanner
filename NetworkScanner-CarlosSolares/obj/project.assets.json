@@ -8,19 +8,19 @@
     "net8.0": []
   },
   "packageFolders": {
-    "C:\\Users\\cesol\\.nuget\\packages\\": {}
+    "C:\\Users\\KQ-DESK\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\cesol\\OneDrive\\Documents\\src\\NetworkScanner\\NetworkScanner\\NetworkScanner-CarlosSolares\\NetworkScanner-CarlosSolares.csproj",
+      "projectUniqueName": "C:\\Users\\KQ-DESK\\Documents\\TestDocker\\src\\Proyecto Riesgos\\NetworkScanner-CarlosSolares\\NetworkScanner-CarlosSolares.csproj",
       "projectName": "NetworkScanner-CarlosSolares",
-      "projectPath": "C:\\Users\\cesol\\OneDrive\\Documents\\src\\NetworkScanner\\NetworkScanner\\NetworkScanner-CarlosSolares\\NetworkScanner-CarlosSolares.csproj",
-      "packagesPath": "C:\\Users\\cesol\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\cesol\\OneDrive\\Documents\\src\\NetworkScanner\\NetworkScanner\\NetworkScanner-CarlosSolares\\obj\\",
+      "projectPath": "C:\\Users\\KQ-DESK\\Documents\\TestDocker\\src\\Proyecto Riesgos\\NetworkScanner-CarlosSolares\\NetworkScanner-CarlosSolares.csproj",
+      "packagesPath": "C:\\Users\\KQ-DESK\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\KQ-DESK\\Documents\\TestDocker\\src\\Proyecto Riesgos\\NetworkScanner-CarlosSolares\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\cesol\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\KQ-DESK\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
