@@ -1,16 +1,19 @@
-﻿using System;
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace NetworkScanner
 {
     class Program
     {
+        private static readonly TimeSpan PortConnectTimeout = TimeSpan.FromMilliseconds(300);
+
         static void Main(string[] args)
         {
             Console.WriteLine("Network Scanner");
@@ -18,8 +21,8 @@ namespace NetworkScanner
             // Record the start time
             Stopwatch stopwatch = Stopwatch.StartNew();
 
-            // Get the IP address and subnet mask of the Wi-Fi router
-            string routerIpAddress, subnetMask;
+            // Get the router IP address and subnet mask from an active IPv4 interface
+            string? routerIpAddress, subnetMask;
             GetRouterIpAndSubnet(out routerIpAddress, out subnetMask);
             if (routerIpAddress == null || subnetMask == null)
             {
@@ -27,18 +30,18 @@ namespace NetworkScanner
                 return;
             }
 
-            Console.WriteLine($"Wi-Fi router IP address: {routerIpAddress}");
+            Console.WriteLine($"Router IP address: {routerIpAddress}");
             Console.WriteLine($"Subnet mask: {subnetMask}");
 
             // Define the range of IP addresses to scan based on the subnet mask
-            List<string> ipAddresses = GetIpAddresses(routerIpAddress, subnetMask);
+            List<string>? ipAddresses = GetIpAddresses(routerIpAddress, subnetMask);
             if (ipAddresses == null || ipAddresses.Count == 0)
             {
                 Console.WriteLine("No IP addresses to scan. Exiting...");
                 return;
             }
 
-            Console.WriteLine($"Scanning network for active hosts...");
+            Console.WriteLine("Scanning network for active hosts...");
 
             // Perform ICMP ping sweep on the network
             List<Task> tasks = new List<Task>();
@@ -103,12 +106,11 @@ namespace NetworkScanner
             }
         }
 
-
         static bool IsHostActive(string ipAddress)
         {
             try
             {
-                Ping ping = new Ping();
+                using Ping ping = new Ping();
                 PingReply reply = ping.Send(ipAddress, 100);
 
                 return reply.Status == IPStatus.Success;
@@ -122,7 +124,7 @@ namespace NetworkScanner
 
         static void CheckOpenPorts(string ipAddress)
         {
-            List<int> openPorts = new List<int>();
+            ConcurrentBag<int> openPorts = new ConcurrentBag<int>();
 
             Parallel.ForEach(GetCommonPorts(), port =>
             {
@@ -130,9 +132,16 @@ namespace NetworkScanner
                 {
                     using (TcpClient tcpClient = new TcpClient())
                     {
-                        tcpClient.Connect(ipAddress, port);
-                        openPorts.Add(port);
+                        Task connectTask = tcpClient.ConnectAsync(ipAddress, port);
+                        if (connectTask.Wait(PortConnectTimeout) && tcpClient.Connected)
+                        {
+                            openPorts.Add(port);
+                        }
                     }
+                }
+                catch (AggregateException ex) when (ex.InnerExceptions.All(inner => inner is SocketException))
+                {
+                    // Port is closed or unreachable
                 }
                 catch (SocketException)
                 {
@@ -144,9 +153,10 @@ namespace NetworkScanner
                 }
             });
 
-            if (openPorts.Any())
+            List<int> orderedOpenPorts = openPorts.Distinct().OrderBy(port => port).ToList();
+            if (orderedOpenPorts.Any())
             {
-                Console.WriteLine($"Open ports on host {ipAddress}: {string.Join(", ", openPorts)}");
+                Console.WriteLine($"Open ports on host {ipAddress}: {string.Join(", ", orderedOpenPorts)}");
             }
         }
 
@@ -155,30 +165,44 @@ namespace NetworkScanner
             return new List<int> { 21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 993, 995 };
         }
 
-        static void GetRouterIpAndSubnet(out string routerIpAddress, out string subnetMask)
+        static void GetRouterIpAndSubnet(out string? routerIpAddress, out string? subnetMask)
         {
             routerIpAddress = null;
             subnetMask = null;
+
             try
             {
-                NetworkInterface wifiInterface = NetworkInterface.GetAllNetworkInterfaces()
-                    .FirstOrDefault(x => x.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 && x.OperationalStatus == OperationalStatus.Up);
+                NetworkInterface? activeInterface = NetworkInterface.GetAllNetworkInterfaces()
+                    .Where(x => x.OperationalStatus == OperationalStatus.Up &&
+                                x.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
+                                x.NetworkInterfaceType != NetworkInterfaceType.Tunnel)
+                    .FirstOrDefault(x =>
+                    {
+                        IPInterfaceProperties properties = x.GetIPProperties();
+                        bool hasIpv4Gateway = properties.GatewayAddresses.Any(g => g.Address.AddressFamily == AddressFamily.InterNetwork);
+                        bool hasIpv4Mask = properties.UnicastAddresses.Any(u => u.Address.AddressFamily == AddressFamily.InterNetwork && u.IPv4Mask != null);
+                        return hasIpv4Gateway && hasIpv4Mask;
+                    });
 
-                if (wifiInterface == null)
+                if (activeInterface == null)
                 {
-                    throw new InvalidOperationException("Wi-Fi interface not found or not operational");
+                    throw new InvalidOperationException("No active IPv4 interface with gateway and subnet mask was found");
                 }
 
-                IPInterfaceProperties wifiIpProperties = wifiInterface.GetIPProperties();
-                GatewayIPAddressInformation gatewayAddress = wifiIpProperties.GatewayAddresses.FirstOrDefault();
+                IPInterfaceProperties interfaceProperties = activeInterface.GetIPProperties();
+                GatewayIPAddressInformation? gatewayAddress = interfaceProperties.GatewayAddresses
+                    .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork);
                 if (gatewayAddress == null)
                 {
                     throw new InvalidOperationException("Gateway address not found");
                 }
 
                 routerIpAddress = gatewayAddress.Address.ToString();
-                subnetMask = wifiIpProperties.UnicastAddresses.FirstOrDefault(x => x.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.IPv4Mask.ToString();
-                if (subnetMask == null)
+                subnetMask = interfaceProperties.UnicastAddresses
+                    .FirstOrDefault(x => x.Address.AddressFamily == AddressFamily.InterNetwork && x.IPv4Mask != null)?
+                    .IPv4Mask?
+                    .ToString();
+                if (string.IsNullOrWhiteSpace(subnetMask))
                 {
                     throw new InvalidOperationException("Subnet mask not found");
                 }
@@ -189,7 +213,7 @@ namespace NetworkScanner
             }
         }
 
-        static List<string> GetIpAddresses(string routerIpAddress, string subnetMask)
+        static List<string>? GetIpAddresses(string routerIpAddress, string subnetMask)
         {
             try
             {
@@ -202,14 +226,29 @@ namespace NetworkScanner
                 uint subnetAddress = routerIpUint & maskUint;
 
                 int hostBits = 32 - CountSetBits(maskUint); // Calculate the number of bits for the host portion
-
-                int hostCount = 1 << hostBits;
-
-                List<string> ipAddresses = new List<string>();
-
-                for (uint i = 1; i < hostCount - 1; i++)
+                if (hostBits < 0 || hostBits > 31)
                 {
-                    uint ipUint = subnetAddress + i;
+                    throw new InvalidOperationException($"Unsupported subnet mask {subnetMask}");
+                }
+
+                ulong hostCount = 1UL << hostBits;
+                if (hostCount <= 2)
+                {
+                    return new List<string>();
+                }
+
+                ulong usableHostCount = hostCount - 2;
+                const ulong maxHostsToGenerate = 1_000_000;
+                if (usableHostCount > maxHostsToGenerate)
+                {
+                    throw new InvalidOperationException($"Subnet is too large to scan with this tool ({usableHostCount:N0} hosts)");
+                }
+
+                List<string> ipAddresses = new List<string>((int)usableHostCount);
+
+                for (ulong i = 1; i < hostCount - 1; i++)
+                {
+                    uint ipUint = subnetAddress + (uint)i;
                     byte[] ipBytes = BitConverter.GetBytes(ipUint).Reverse().ToArray();
                     ipAddresses.Add(new IPAddress(ipBytes).ToString());
                 }
